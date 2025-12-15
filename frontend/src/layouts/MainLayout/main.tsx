@@ -4,13 +4,14 @@ import { Outlet } from 'react-router-dom';
 import { Suspense } from 'react';
 import { LoadingSpinner } from '@/core/components/loading-spinner';
 import { Button } from '@/core/components/button';
-import { ArrowLeftRight } from 'lucide-react';
+import { ArrowLeftRight, FileInput } from 'lucide-react';
 
 function MainLayout() {
   const { location, navigate } = useNavigation();
 
   const isTranslatorPage = location.pathname === '/';
   const isDecoderPage = location.pathname === '/decoder';
+  const isInputPage = location.pathname === '/input';
 
   const handleToggle = () => {
     if (isTranslatorPage) {
@@ -18,6 +19,10 @@ function MainLayout() {
     } else {
       navigate('/');
     }
+  };
+
+  const handleInputPage = () => {
+    navigate('/input');
   };
 
   return (
@@ -29,12 +34,20 @@ function MainLayout() {
               <h1 className="text-2xl font-bold">Morser</h1>
               <p className="text-muted-foreground text-sm">Tradutor de Código Morse</p>
             </div>
-            {(isTranslatorPage || isDecoderPage) && (
-              <Button variant="outline" onClick={handleToggle}>
-                <ArrowLeftRight className="h-4 w-4" />
-                {isTranslatorPage ? 'Decodificar Morse' : 'Traduzir Texto'}
-              </Button>
-            )}
+            <div className="flex gap-2">
+              {!isInputPage && (
+                <Button variant="outline" onClick={handleInputPage}>
+                  <FileInput className="h-4 w-4" />
+                  Interface de Entrada
+                </Button>
+              )}
+              {(isTranslatorPage || isDecoderPage) && (
+                <Button variant="outline" onClick={handleToggle}>
+                  <ArrowLeftRight className="h-4 w-4" />
+                  {isTranslatorPage ? 'Decodificar Morse' : 'Traduzir Texto'}
+                </Button>
+              )}
+            </div>
           </div>
         </header>
         <main className="flex h-full min-h-fit flex-1">

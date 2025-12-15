@@ -9,6 +9,7 @@
 import { Router } from 'express';
 import * as initExampleController from '@/api/internal/init-example/controller';
 import * as morseTranslatorController from '@/api/internal/morse-translator/controller';
+import * as inputValidationController from '@/api/internal/input-validation/controller';
 
 const router = Router();
 
@@ -29,5 +30,14 @@ router.delete('/init-example/:id', initExampleController.deleteHandler);
 router.post('/morse-translator/translate', morseTranslatorController.translateHandler);
 router.post('/morse-translator/decode', morseTranslatorController.decodeHandler);
 router.get('/morse-translator/status', morseTranslatorController.statusHandler);
+
+/**
+ * @rule {be-route-configuration}
+ * Input Validation routes - /api/internal/input-validation
+ */
+router.post('/input-validation/text', inputValidationController.validateTextHandler);
+router.post('/input-validation/morse', inputValidationController.validateMorseHandler);
+router.post('/input-validation/sequence', inputValidationController.validateSequenceHandler);
+router.get('/input-validation/state', inputValidationController.getStateHandler);
 
 export default router;

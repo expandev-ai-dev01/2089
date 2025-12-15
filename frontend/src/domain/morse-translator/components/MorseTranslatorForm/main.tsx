@@ -6,26 +6,20 @@ import type { MorseTranslationFormInput, MorseTranslationFormOutput } from '../.
 import type { MorseTranslatorFormProps } from './types';
 import { useMorseTranslator } from '../../hooks/useMorseTranslator';
 import { Button } from '@/core/components/button';
-import { Textarea } from '@/core/components/textarea';
-import { Label } from '@/core/components/label';
 import { Alert, AlertDescription } from '@/core/components/alert';
 import { LoadingSpinner } from '@/core/components/loading-spinner';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { ValidatedTextInput } from '@/domain/input-validation/components/ValidatedTextInput';
 
 function MorseTranslatorForm({ onTranslationComplete }: MorseTranslatorFormProps) {
   const { systemStatus, isLoadingStatus, translate, isTranslating, isSystemReady } =
     useMorseTranslator();
-  const [characterCount, setCharacterCount] = useState(0);
+  const [textValue, setTextValue] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue,
-  } = useForm<MorseTranslationFormInput, unknown, MorseTranslationFormOutput>({
+  const { handleSubmit } = useForm<MorseTranslationFormInput, unknown, MorseTranslationFormOutput>({
     resolver: zodResolver(morseTranslationSchema),
     mode: 'onBlur',
     defaultValues: {
@@ -33,20 +27,24 @@ function MorseTranslatorForm({ onTranslationComplete }: MorseTranslatorFormProps
     },
   });
 
-  const textValue = watch('text');
-
-  useEffect(() => {
-    setCharacterCount(textValue?.length ?? 0);
-  }, [textValue]);
-
-  const onSubmit = async (data: MorseTranslationFormOutput) => {
+  const onSubmit = async () => {
     if (!isSystemReady) {
       toast.error('Aguarde a inicialização do sistema');
       return;
     }
 
+    if (!textValue || textValue.length === 0) {
+      toast.error('Digite um texto para traduzir');
+      return;
+    }
+
+    if (validationError) {
+      toast.error('Corrija os erros de validação antes de traduzir');
+      return;
+    }
+
     try {
-      const sanitizedText = DOMPurify.sanitize(data.text);
+      const sanitizedText = DOMPurify.sanitize(textValue);
       const result = await translate({ text: sanitizedText });
       toast.success('Texto traduzido com sucesso!');
       onTranslationComplete?.(result);
@@ -56,16 +54,6 @@ function MorseTranslatorForm({ onTranslationComplete }: MorseTranslatorFormProps
       } else {
         toast.error('Erro ao traduzir texto');
       }
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text');
-    if (pastedText.length > 1000) {
-      e.preventDefault();
-      const truncatedText = pastedText.substring(0, 1000);
-      setValue('text', truncatedText);
-      toast.warning('Texto colado foi reduzido para 1000 caracteres');
     }
   };
 
@@ -98,34 +86,16 @@ function MorseTranslatorForm({ onTranslationComplete }: MorseTranslatorFormProps
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="text">Digite o texto para traduzir</Label>
-          <span
-            className={`text-sm ${
-              characterCount > 950 ? 'text-destructive font-medium' : 'text-muted-foreground'
-            }`}
-          >
-            {characterCount}/1000
-          </span>
-        </div>
-        <Textarea
-          id="text"
-          placeholder="Digite seu texto aqui..."
-          className="min-h-[120px] resize-none font-mono"
-          {...register('text')}
-          onPaste={handlePaste}
-          disabled={isTranslating}
-          aria-invalid={!!errors.text}
-        />
-        {errors.text && (
-          <p className="text-destructive text-sm font-medium">{errors.text.message}</p>
-        )}
-      </div>
+      <ValidatedTextInput
+        value={textValue}
+        onChange={setTextValue}
+        onValidationError={setValidationError}
+        disabled={isTranslating}
+      />
 
       <Button
         type="submit"
-        disabled={isTranslating || !isSystemReady || characterCount === 0}
+        disabled={isTranslating || !isSystemReady || textValue.length === 0 || !!validationError}
         className="w-full sm:w-auto sm:self-end"
       >
         {isTranslating ? (

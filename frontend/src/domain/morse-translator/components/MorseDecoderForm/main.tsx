@@ -6,25 +6,19 @@ import type { MorseDecodingFormInput, MorseDecodingFormOutput } from '../../type
 import type { MorseDecoderFormProps } from './types';
 import { useMorseDecoder } from '../../hooks/useMorseDecoder';
 import { Button } from '@/core/components/button';
-import { Textarea } from '@/core/components/textarea';
-import { Label } from '@/core/components/label';
 import { Alert, AlertDescription } from '@/core/components/alert';
 import { LoadingSpinner } from '@/core/components/loading-spinner';
 import { AlertCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { ValidatedMorseInput } from '@/domain/input-validation/components/ValidatedMorseInput';
 
 function MorseDecoderForm({ onDecodingComplete }: MorseDecoderFormProps) {
   const { systemStatus, isLoadingStatus, decode, isDecoding, isSystemReady } = useMorseDecoder();
-  const [characterCount, setCharacterCount] = useState(0);
+  const [morseValue, setMorseValue] = useState('');
+  const [validationError, setValidationError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    watch,
-    setValue,
-  } = useForm<MorseDecodingFormInput, unknown, MorseDecodingFormOutput>({
+  const { handleSubmit } = useForm<MorseDecodingFormInput, unknown, MorseDecodingFormOutput>({
     resolver: zodResolver(morseDecodingSchema),
     mode: 'onBlur',
     defaultValues: {
@@ -32,20 +26,24 @@ function MorseDecoderForm({ onDecodingComplete }: MorseDecoderFormProps) {
     },
   });
 
-  const morseValue = watch('morseCode');
-
-  useEffect(() => {
-    setCharacterCount(morseValue?.length ?? 0);
-  }, [morseValue]);
-
-  const onSubmit = async (data: MorseDecodingFormOutput) => {
+  const onSubmit = async () => {
     if (!isSystemReady) {
       toast.error('Aguarde a inicialização do sistema');
       return;
     }
 
+    if (!morseValue || morseValue.length === 0) {
+      toast.error('Digite um código Morse para decodificar');
+      return;
+    }
+
+    if (validationError) {
+      toast.error('Corrija os erros de validação antes de decodificar');
+      return;
+    }
+
     try {
-      const sanitizedMorse = DOMPurify.sanitize(data.morseCode);
+      const sanitizedMorse = DOMPurify.sanitize(morseValue);
       const result = await decode({ morseCode: sanitizedMorse });
       toast.success('Código Morse decodificado com sucesso!');
       onDecodingComplete?.(result);
@@ -55,16 +53,6 @@ function MorseDecoderForm({ onDecodingComplete }: MorseDecoderFormProps) {
       } else {
         toast.error('Erro ao decodificar código Morse');
       }
-    }
-  };
-
-  const handlePaste = (e: React.ClipboardEvent<HTMLTextAreaElement>) => {
-    const pastedText = e.clipboardData.getData('text');
-    if (pastedText.length > 1000) {
-      e.preventDefault();
-      const truncatedText = pastedText.substring(0, 1000);
-      setValue('morseCode', truncatedText);
-      toast.warning('Texto colado foi reduzido para 1000 caracteres');
     }
   };
 
@@ -97,37 +85,16 @@ function MorseDecoderForm({ onDecodingComplete }: MorseDecoderFormProps) {
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-6">
-      <div className="flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="morseCode">Digite o código Morse para decodificar</Label>
-          <span
-            className={`text-sm ${
-              characterCount > 950 ? 'text-destructive font-medium' : 'text-muted-foreground'
-            }`}
-          >
-            {characterCount}/1000
-          </span>
-        </div>
-        <Textarea
-          id="morseCode"
-          placeholder="... --- ... | .... . .-.. .-.. --- (SOS HELLO)"
-          className="min-h-[120px] resize-none font-mono"
-          {...register('morseCode')}
-          onPaste={handlePaste}
-          disabled={isDecoding}
-          aria-invalid={!!errors.morseCode}
-        />
-        {errors.morseCode && (
-          <p className="text-destructive text-sm font-medium">{errors.morseCode.message}</p>
-        )}
-        <p className="text-muted-foreground text-xs">
-          Use espaços para separar letras e " | " para separar palavras
-        </p>
-      </div>
+      <ValidatedMorseInput
+        value={morseValue}
+        onChange={setMorseValue}
+        onValidationError={setValidationError}
+        disabled={isDecoding}
+      />
 
       <Button
         type="submit"
-        disabled={isDecoding || !isSystemReady || characterCount === 0}
+        disabled={isDecoding || !isSystemReady || morseValue.length === 0 || !!validationError}
         className="w-full sm:w-auto sm:self-end"
       >
         {isDecoding ? (

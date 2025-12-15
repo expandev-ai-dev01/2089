@@ -3,14 +3,40 @@ import { useNavigation } from '@/core/hooks/useNavigation';
 import { Outlet } from 'react-router-dom';
 import { Suspense } from 'react';
 import { LoadingSpinner } from '@/core/components/loading-spinner';
+import { Button } from '@/core/components/button';
+import { ArrowLeftRight } from 'lucide-react';
 
 function MainLayout() {
-  const { location } = useNavigation();
+  const { location, navigate } = useNavigation();
+
+  const isTranslatorPage = location.pathname === '/';
+  const isDecoderPage = location.pathname === '/decoder';
+
+  const handleToggle = () => {
+    if (isTranslatorPage) {
+      navigate('/decoder');
+    } else {
+      navigate('/');
+    }
+  };
 
   return (
     <ErrorBoundary resetKey={location.pathname}>
       <div className="bg-background relative flex min-h-screen flex-col font-sans antialiased">
-        <header className="px-9 py-9"></header>
+        <header className="border-b px-9 py-6">
+          <div className="container mx-auto flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold">Morser</h1>
+              <p className="text-muted-foreground text-sm">Tradutor de Código Morse</p>
+            </div>
+            {(isTranslatorPage || isDecoderPage) && (
+              <Button variant="outline" onClick={handleToggle}>
+                <ArrowLeftRight className="h-4 w-4" />
+                {isTranslatorPage ? 'Decodificar Morse' : 'Traduzir Texto'}
+              </Button>
+            )}
+          </div>
+        </header>
         <main className="flex h-full min-h-fit flex-1">
           <div className="max-w-dvw container flex-1 px-9 py-0">
             <Suspense
@@ -24,7 +50,13 @@ function MainLayout() {
             </Suspense>
           </div>
         </main>
-        <footer className="px-9 py-9"></footer>
+        <footer className="border-t px-9 py-6">
+          <div className="container mx-auto text-center">
+            <p className="text-muted-foreground text-sm">
+              © 2024 Morser - Tradutor de Código Morse
+            </p>
+          </div>
+        </footer>
       </div>
     </ErrorBoundary>
   );

@@ -27,6 +27,7 @@ router.delete('/init-example/:id', initExampleController.deleteHandler);
  * Morse Translator routes - /api/internal/morse-translator
  */
 router.post('/morse-translator/translate', morseTranslatorController.translateHandler);
+router.post('/morse-translator/decode', morseTranslatorController.decodeHandler);
 router.get('/morse-translator/status', morseTranslatorController.statusHandler);
 
 export default router;

@@ -1,14 +1,19 @@
 /**
  * @summary
  * Business logic for Morse Translator.
- * Handles text to Morse code translation with normalization and validation.
+ * Handles text to Morse code translation and Morse to text translation
+ * with normalization and validation.
  *
  * @module services/morseTranslator/morseTranslatorService
  */
 
 import { ServiceError } from '@/utils';
-import { MorseTranslationResponse, SystemStatus } from './morseTranslatorTypes';
-import { translateTextSchema } from './morseTranslatorValidation';
+import {
+  MorseTranslationResponse,
+  MorseDecodeResponse,
+  SystemStatus,
+} from './morseTranslatorTypes';
+import { translateTextSchema, translateMorseSchema } from './morseTranslatorValidation';
 import {
   MORSE_DICTIONARY,
   NORMALIZATION_MAP,
@@ -23,6 +28,58 @@ let systemStatus: SystemStatus = {
   message: 'Inicializando sistema...',
   ready: false,
 };
+
+/**
+ * Reverse Morse dictionary for decoding
+ */
+let REVERSE_MORSE_DICTIONARY: Record<string, string> = {};
+
+/**
+ * Fallback dictionary with basic A-Z and 0-9 mappings
+ */
+const FALLBACK_DICTIONARY: Record<string, string> = {
+  A: '.-',
+  B: '-...',
+  C: '-.-.',
+  D: '-..',
+  E: '.',
+  F: '..-.',
+  G: '--.',
+  H: '....',
+  I: '..',
+  J: '.---',
+  K: '-.-',
+  L: '.-..',
+  M: '--',
+  N: '-.',
+  O: '---',
+  P: '.--.',
+  Q: '--.-',
+  R: '.-.',
+  S: '...',
+  T: '-',
+  U: '..-',
+  V: '...-',
+  W: '.--',
+  X: '-..-',
+  Y: '-.--',
+  Z: '--..',
+  '0': '-----',
+  '1': '.----',
+  '2': '..---',
+  '3': '...--',
+  '4': '....-',
+  '5': '.....',
+  '6': '-....',
+  '7': '--...',
+  '8': '---..',
+  '9': '----.',
+};
+
+/**
+ * Reverse fallback dictionary for decoding
+ */
+let REVERSE_FALLBACK_DICTIONARY: Record<string, string> = {};
 
 /**
  * Initialize system components
@@ -42,6 +99,17 @@ function initializeSystem(): void {
     // Validate supported characters list
     if (!SUPPORTED_CHARACTERS || SUPPORTED_CHARACTERS.length === 0) {
       throw new Error('Lista de caracteres suportados inválida');
+    }
+
+    // Build reverse dictionaries
+    REVERSE_MORSE_DICTIONARY = {};
+    for (const [char, morse] of Object.entries(MORSE_DICTIONARY)) {
+      REVERSE_MORSE_DICTIONARY[morse] = char;
+    }
+
+    REVERSE_FALLBACK_DICTIONARY = {};
+    for (const [char, morse] of Object.entries(FALLBACK_DICTIONARY)) {
+      REVERSE_FALLBACK_DICTIONARY[morse] = char;
     }
 
     systemStatus = {
@@ -127,7 +195,7 @@ function validateCharacters(text: string): void {
  *
  * @example
  * const morse = translateToMorse('HELLO WORLD');
- * // Returns: '.... . .-.. .-.. --- | .-- --- .-. .-.. -..'
+ * // Returns: '.... . .-.. .-.. --- | .-- --- .-. .-.. -..''
  */
 function translateToMorse(text: string): string {
   // Normalize multiple spaces to single space
@@ -161,6 +229,99 @@ function translateToMorse(text: string): string {
   }
 
   return morseWords.join(' | ');
+}
+
+/**
+ * @summary
+ * Normalizes Morse code input by cleaning invalid characters and formatting.
+ *
+ * @function normalizeMorseCode
+ * @module services/morseTranslator
+ *
+ * @param {string} morse - Morse code to normalize
+ * @returns {string} Normalized Morse code
+ *
+ * @example
+ * const normalized = normalizeMorseCode('... --- ...  |  .... . .-.. .-.. ---');
+ * // Returns: '... --- ... | .... . .-.. .-.. ---'
+ */
+function normalizeMorseCode(morse: string): string {
+  // Remove invalid characters (keep only dots, dashes, spaces, and pipes)
+  let normalized = morse.replace(/[^.\-\s|]/g, '');
+
+  // Normalize multiple spaces to single space
+  normalized = normalized.replace(/\s+/g, ' ');
+
+  // Fix malformed pipes: '|' -> ' | ', '| |' -> ' | '
+  normalized = normalized.replace(/\s*\|\s*/g, ' | ');
+
+  // Normalize multiple consecutive pipes to single pipe
+  normalized = normalized.replace(/(\s\|\s)+/g, ' | ');
+
+  // Remove leading/trailing spaces and pipes
+  normalized = normalized.trim().replace(/^\|\s*|\s*\|$/g, '');
+
+  return normalized;
+}
+
+/**
+ * @summary
+ * Translates Morse code to text.
+ *
+ * @function translateFromMorse
+ * @module services/morseTranslator
+ *
+ * @param {string} morse - Morse code to translate
+ * @returns {{ text: string; invalidCount: number }} Translation result with invalid code count
+ *
+ * @example
+ * const result = translateFromMorse('.... . .-.. .-.. --- | .-- --- .-. .-.. -..');
+ * // Returns: { text: 'HELLO WORLD', invalidCount: 0 }
+ */
+function translateFromMorse(morse: string): { text: string; invalidCount: number } {
+  if (!morse || morse.trim() === '') {
+    return { text: '', invalidCount: 0 };
+  }
+
+  const words = morse.split(' | ');
+  const translatedWords: string[] = [];
+  let invalidCount = 0;
+
+  for (const word of words) {
+    if (!word.trim()) {
+      continue;
+    }
+
+    const codes = word.split(' ').filter((code) => code.trim() !== '');
+    const translatedChars: string[] = [];
+
+    for (const code of codes) {
+      // Try main dictionary first
+      let char = REVERSE_MORSE_DICTIONARY[code];
+
+      // If not found, try fallback dictionary
+      if (!char) {
+        char = REVERSE_FALLBACK_DICTIONARY[code];
+      }
+
+      // If still not found, mark as invalid
+      if (!char) {
+        translatedChars.push('[?]');
+        invalidCount++;
+      } else {
+        translatedChars.push(char);
+      }
+    }
+
+    if (translatedChars.length > 0) {
+      translatedWords.push(translatedChars.join(''));
+    }
+  }
+
+  return {
+    text: translatedWords.join(' '),
+    invalidCount,
+  };
 }
 
 /**
@@ -232,5 +393,58 @@ export async function translateTextToMorse(body: unknown): Promise<MorseTranslat
     normalizedText,
     morseCode,
     characterCount: text.length,
+  };
+}
+
+/**
+ * @summary
+ * Translates Morse code to text with full validation and normalization.
+ *
+ * @function translateMorseToText
+ * @module services/morseTranslator
+ *
+ * @param {unknown} body - Raw request body to validate
+ * @returns {Promise<MorseDecodeResponse>} Translation result with metadata
+ *
+ * @throws {ServiceError} VALIDATION_ERROR (400) - When body fails validation
+ * @throws {ServiceError} SYSTEM_NOT_READY (503) - When system is not initialized
+ *
+ * @example
+ * const result = await translateMorseToText({ morseCode: '... --- ...' });
+ * // Returns: {
+ * //   originalMorse: '... --- ...',
+ * //   normalizedMorse: '... --- ...',
+ * //   translatedText: 'SOS',
+ * //   characterCount: 11,
+ * //   invalidCodeCount: 0
+ * // }
+ */
+export async function translateMorseToText(body: unknown): Promise<MorseDecodeResponse> {
+  // Check system status
+  if (!systemStatus.ready) {
+    throw new ServiceError('SYSTEM_NOT_READY', 'Aguarde a inicialização do sistema', 503);
+  }
+
+  // Validate request body
+  const validation = translateMorseSchema.safeParse(body);
+
+  if (!validation.success) {
+    throw new ServiceError('VALIDATION_ERROR', 'Validation failed', 400, validation.error.errors);
+  }
+
+  const { morseCode } = validation.data;
+
+  // Normalize Morse code
+  const normalizedMorse = normalizeMorseCode(morseCode);
+
+  // Translate from Morse
+  const { text, invalidCount } = translateFromMorse(normalizedMorse);
+
+  return {
+    originalMorse: morseCode,
+    normalizedMorse,
+    translatedText: text,
+    characterCount: morseCode.length,
+    invalidCodeCount: invalidCount,
   };
 }

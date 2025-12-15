@@ -5,7 +5,10 @@ export * from './validations';
 
 export type {
   MorseTranslation,
+  MorseDecoding,
   MorseTranslationFormInput,
   MorseTranslationFormOutput,
+  MorseDecodingFormInput,
+  MorseDecodingFormOutput,
   SystemStatus,
 } from './types';

@@ -8,7 +8,11 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { successResponse, errorResponse, isServiceError } from '@/utils';
-import { translateTextToMorse, getSystemStatus } from '@/services/morseTranslator';
+import {
+  translateTextToMorse,
+  translateMorseToText,
+  getSystemStatus,
+} from '@/services/morseTranslator';
 
 /**
  * @api {post} /api/internal/morse-translator/translate Translate Text to Morse
@@ -34,6 +38,41 @@ export async function translateHandler(
 ): Promise<void> {
   try {
     const data = await translateTextToMorse(req.body);
+    res.json(successResponse(data));
+  } catch (error) {
+    if (isServiceError(error)) {
+      res.status(error.statusCode).json(errorResponse(error.message, error.code, error.details));
+      return;
+    }
+    next(error);
+  }
+}
+
+/**
+ * @api {post} /api/internal/morse-translator/decode Translate Morse to Text
+ * @apiName TranslateMorseToText
+ * @apiGroup MorseTranslator
+ *
+ * @apiBody {String} morseCode Morse code to translate (1-1000 chars)
+ *
+ * @apiSuccess {Boolean} success Success flag (always true)
+ * @apiSuccess {String} data.originalMorse Original input Morse code
+ * @apiSuccess {String} data.normalizedMorse Morse code after normalization
+ * @apiSuccess {String} data.translatedText Translated text
+ * @apiSuccess {Number} data.characterCount Number of characters in Morse code
+ * @apiSuccess {Number} data.invalidCodeCount Number of invalid codes found
+ *
+ * @apiError {Boolean} success Success flag (always false)
+ * @apiError {String} error.code Error code (VALIDATION_ERROR | SYSTEM_NOT_READY | TRANSLATION_ERROR)
+ * @apiError {String} error.message Error message
+ */
+export async function decodeHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const data = await translateMorseToText(req.body);
     res.json(successResponse(data));
   } catch (error) {
     if (isServiceError(error)) {

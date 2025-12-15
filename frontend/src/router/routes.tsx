@@ -6,6 +6,9 @@ import { MainLayout } from '@/layouts/MainLayout';
 const MorseTranslatorPage = lazy(() =>
   import('@/pages/MorseTranslator').then((module) => ({ default: module.MorseTranslatorPage }))
 );
+const MorseDecoderPage = lazy(() =>
+  import('@/pages/MorseDecoder').then((module) => ({ default: module.MorseDecoderPage }))
+);
 const NotFoundPage = lazy(() =>
   import('@/pages/NotFound').then((module) => ({ default: module.NotFoundPage }))
 );
@@ -28,6 +31,10 @@ const routes = createBrowserRouter([
       {
         index: true,
         element: <MorseTranslatorPage />,
+      },
+      {
+        path: 'decoder',
+        element: <MorseDecoderPage />,
       },
       {
         path: '*',
